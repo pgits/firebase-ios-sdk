@@ -33,7 +33,7 @@ Pod::Spec.new do |s|
         'FIRInstallations_LIB_VERSION=' + String(s.version)
     }
     s.framework = 'Security'
-    s.dependency 'FirebaseCore', '~> 6.0'
+    s.dependency 'FirebaseCore', '~> 6.3'
     s.dependency 'PromisesObjC', '~> 1.2'
     s.dependency 'GoogleUtilities/UserDefaults', '~> 6.2'
 
