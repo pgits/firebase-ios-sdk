@@ -98,7 +98,7 @@ public enum CocoaPodUtils {
   /// Install an array of pods in a specific directory, returning an array of PodInfo for each pod
   /// that was installed.
   @discardableResult
-  public static func installPods(_ pods: [CocoaPod],
+  public static func installPods(_ pods: [String],
                                  inDir directory: URL,
                                  customSpecRepos: [URL]? = nil) -> [PodInfo] {
     let fileManager = FileManager.default
@@ -212,13 +212,22 @@ public enum CocoaPodUtils {
     return (framework, version)
   }
 
+  static func minSupportedIOSVersion(pod : String) -> OperatingSystemVersion {
+    // All ML pods have a minimum iOS version of 9.0.
+    if pod.hasPrefix("ML") {
+      return OperatingSystemVersion(majorVersion: 9, minorVersion: 0, patchVersion: 0)
+    } else {
+      return OperatingSystemVersion(majorVersion: 8, minorVersion: 0, patchVersion: 0)
+    }
+  }
+
   /// Create the contents of a Podfile for an array of subspecs. This assumes the array of subspecs
   /// is not empty.
-  private static func generatePodfile(for pods: [CocoaPod],
+  private static func generatePodfile(for pods: [String],
                                       customSpecsRepos: [URL]? = nil) -> String {
     // Get the largest minimum supported iOS version from the array of subspecs.
-    let minVersions = pods.map { $0.minSupportedIOSVersion() }
-
+    let minVersions = pods.map { CocoaPodUtils.minSupportedIOSVersion(pod:$0) }
+// Convert to pods util
     // Get the maximum version out of all the minimum versions supported.
     guard let largestMinVersion = minVersions.max() else {
       // This shouldn't happen, but in the interest of completeness quit the script and describe
@@ -252,7 +261,7 @@ public enum CocoaPodUtils {
 
     // Loop through the subspecs passed in and use the rawValue (actual Pod name).
     for pod in pods {
-      podfile += "  pod '\(pod.podName)'\n"
+      podfile += "  pod '\(CocoaPod.podName(pod:pod))'\n"
     }
 
     podfile += "end"
@@ -298,7 +307,7 @@ public enum CocoaPodUtils {
 
   /// Write a podfile that contains all the pods passed in to the directory passed in with a name
   /// "Podfile".
-  private static func writePodfile(for pods: [CocoaPod],
+  private static func writePodfile(for pods: [String],
                                    toDirectory directory: URL,
                                    customSpecRepos: [URL]?) throws {
     guard FileManager.default.directoryExists(at: directory) else {

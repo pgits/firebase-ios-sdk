@@ -181,7 +181,7 @@ struct ZipBuilder {
     // Break the `podsToInstall` into a variable since it's helpful when debugging builds to just
     // install a subset of pods, like the following line:
 //    let podsToInstall: [CocoaPod] = [.core, .analytics, .storage]
-    let podsToInstall = CocoaPod.allCases
+    let podsToInstall = LaunchArgs.shared.zipPods
 
     // Remove CocoaPods cache so the build gets updates after a version is rebuilt during the
     // release process.
@@ -262,7 +262,7 @@ struct ZipBuilder {
     do {
       // This returns the Analytics directory and a list of framework names that Analytics reqires.
       /// Example: ["FirebaseInstanceID", "GoogleAppMeasurement", "nanopb", <...>]
-      let (dir, frameworks) = try installAndCopyFrameworks(forPod: .analytics,
+      let (dir, frameworks) = try installAndCopyFrameworks(forPod: "Analytics",
                                                            projectDir: projectDir,
                                                            rootZipDir: zipDir,
                                                            builtFrameworks: frameworks)
@@ -273,13 +273,13 @@ struct ZipBuilder {
     }
 
     // Start the README dependencies string with the frameworks built in Analytics.
-    var readmeDeps = dependencyString(for: .analytics,
+    var readmeDeps = dependencyString(for: "Analytics",
                                       in: analyticsDir,
                                       frameworks: analyticsFrameworks)
 
     // Loop through all the other subspecs that aren't Core and Analytics and write them to their
     // final destination, including resources.
-    let remainingPods = podsToInstall.filter { $0 != .analytics && $0 != .core }
+    let remainingPods = podsToInstall.filter { $0 != "Analytics" && $0 != "Core" }
     for pod in remainingPods {
       do {
         let (productDir, podFrameworks) =
@@ -292,7 +292,7 @@ struct ZipBuilder {
         // Update the README.
         readmeDeps += dependencyString(for: pod, in: productDir, frameworks: podFrameworks)
       } catch {
-        fatalError("Could not copy frameworks from \(pod.rawValue) into the zip file: \(error)")
+        fatalError("Could not copy frameworks from \(pod) into the zip file: \(error)")
       }
     }
 
@@ -465,8 +465,8 @@ struct ZipBuilder {
   /// - Returns: A string with a header for the subspec name, and a list of frameworks required to
   ///            integrate for the product to work. Formatted and ready for insertion into the
   ///            README.
-  private func dependencyString(for pod: CocoaPod, in dir: URL, frameworks: [String]) -> String {
-    var result = pod.readmeHeader()
+  private func dependencyString(for pod: String, in dir: URL, frameworks: [String]) -> String {
+    var result = CocoaPod.readmeHeader(pod:pod)
     for framework in frameworks.sorted() {
       result += "- \(framework).framework\n"
     }
@@ -542,7 +542,7 @@ struct ZipBuilder {
   ///            that were copied for this subspec.
   @discardableResult
   func installAndCopyFrameworks(
-    forPod pod: CocoaPod,
+    forPod pod: String,
     projectDir: URL,
     rootZipDir: URL,
     builtFrameworks: [String: [URL]],
@@ -550,12 +550,12 @@ struct ZipBuilder {
   ) throws -> (productDir: URL, frameworks: [String]) {
     let installedPods = CocoaPodUtils.installPods([pod], inDir: projectDir, customSpecRepos: customSpecRepos)
     // Copy the frameworks into the proper product directory.
-    let productDir = rootZipDir.appendingPathComponent(pod.rawValue)
+    let productDir = rootZipDir.appendingPathComponent(pod)
     let namedFrameworks = try copyFrameworks(fromPods: installedPods,
                                              toDirectory: productDir,
                                              frameworkLocations: builtFrameworks,
                                              podsToIgnore: podsToIgnore,
-                                             foldersToIgnore: pod.duplicateFrameworksToRemove())
+                                             foldersToIgnore: CocoaPod.duplicateFrameworksToRemove(pod:pod))
 
     let copiedFrameworks = namedFrameworks.filter {
       // Only return the frameworks that aren't contained in the "podsToIgnore" array, aren't an
